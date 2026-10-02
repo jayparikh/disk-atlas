@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+
+# Private scan data and exports must never be published.
+/data/
+/reports/
+/exports/
+/screenshots/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.tmp
+recommendations.json
+disk-atlas-*.json
+*.zip
+
+# Only explicitly generated synthetic screenshots belong in this repository.
+*.png
+*.jpg
+*.jpeg
+*.webp
+!docs/assets/demo.png
