@@ -51,3 +51,14 @@ that the image contains no personal paths or image metadata.
 
 Use short, descriptive labels. Describe what a view measures and what an
 action does. Avoid slogans, promotional claims and unsupported safety claims.
+
+## Typography
+
+Use the shared `--type-*` tokens in `index.html`, including in generated markup.
+At the default browser font size, the scale is 12px metadata, 14px dense UI
+and body copy, 16px subheadings, 20px section headings, 24px key metrics,
+32px chart totals, and 40px page titles (32px on narrow screens).
+Do not add one-off sizes or shrink text below the metadata size to fit.
+Use wrapping, truncation with accessible full text, or layout changes instead.
+The wordmark is an intentional branding exception. Keep prose within 65–70ch
+and retain monospace only for paths, code and numeric measurements.
