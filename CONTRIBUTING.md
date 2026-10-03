@@ -12,9 +12,13 @@ python -m unittest discover -s . -p "test_*.py" -v
 node test_treemap.cjs
 ```
 
-Real scanning is Windows-first. A platform-support change should address
-volume discovery, allocation semantics, permissions, path classification and
-cleanup guidance, not just make the server start on another OS.
+CI covers Windows, Linux and macOS. On macOS you can run these Python commands
+with `uv run --python 3.12 python` instead of `python`; no packages are required.
+Platform changes should cover scan scope, allocation semantics, permissions,
+path classification and cleanup guidance, not just server startup.
+Mac scans use the startup filesystem's normal namespace and exclude mirrored
+APFS paths and other mounts. Use synthetic fixtures for permission, cloud and
+mount-boundary tests; do not depend on Full Disk Access or external volumes.
 
 ## Data and safety
 
@@ -62,3 +66,8 @@ Do not add one-off sizes or shrink text below the metadata size to fit.
 Use wrapping, truncation with accessible full text, or layout changes instead.
 The wordmark is an intentional branding exception. Keep prose within 65–70ch
 and retain monospace only for paths, code and numeric measurements.
+Use `--font-ui` for text, controls, the wordmark and SVG labels, and
+`--font-mono` for paths, code and numeric measurements. Native system fonts
+come first so macOS uses its own UI typography even when Microsoft fonts are
+installed. Keep the wordmark at `--type-brand` with a semibold weight; do not
+reintroduce platform-dependent decorative font fallbacks or remote fonts.

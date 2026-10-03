@@ -97,6 +97,22 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(report["scan"]["allocationFailures"], 1)
         self.assertEqual(self.inventory.issues()["count"], 1)
 
+    def test_folder_filters_preserve_posix_case_and_component_boundaries(self):
+        db = sqlite3.connect(":memory:")
+        try:
+            db.execute("CREATE TABLE files(path TEXT)")
+            paths = ["/Users/Demo/A/file", "/Users/Demo/a/file", "/Users/Demo/AB/file",
+                     "/Users/Demo/100%_/file", "/Users/Demo/100abc/file"]
+            db.executemany("INSERT INTO files VALUES(?)", [(path,) for path in paths])
+            for folder, expected in [
+                ("/Users/Demo/A", paths[:1]), ("/Users/Demo/a/", paths[1:2]),
+                ("/Users/Demo/100%_", paths[3:4]),
+            ]:
+                where, values = Inventory.filters({"folder": folder})
+                self.assertEqual([row[0] for row in db.execute("SELECT path FROM files" + where, values)], expected)
+        finally:
+            db.close()
+
     def test_empty_scan_and_cancelled_scan(self):
         report = self.scan()
         self.assertEqual(report["allocated"], 0)
@@ -185,6 +201,15 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(json.load(result)["status"], "idle")
         with self.request("/") as result:
             self.assertIn(b'const TOKEN = "test-token"', result.read())
+
+    def test_mac_status_explains_scope_without_scanning(self):
+        with patch("server.IS_MACOS", True), patch("server.sys.platform", "darwin"):
+            with self.request("/api/status", {"X-Atlas-Token": "test-token"}) as result:
+                state = json.load(result)
+        self.assertEqual(state["platform"], "darwin")
+        self.assertEqual(state["status"], "idle")
+        self.assertIn("Full Disk Access", state["scanNote"])
+        self.assertIn("/System/Volumes", state["scanNote"])
 
     def test_missing_token_origin_and_host_rejected(self):
         for headers in ({}, {"X-Atlas-Token": "wrong"},

@@ -11,13 +11,15 @@ No external scripts, fonts or services are loaded.
 <script>
   (() => {
     const param = new URLSearchParams(window.location.search).get("theme");
-    const theme =
-      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const theme = param === "light" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", theme);
   })();
 </script>
 <style>
 :root {
+  --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --type-brand: 1.75rem;
   --type-meta: .75rem;
   --type-body: .875rem;
   --type-subheading: 1rem;
@@ -26,8 +28,8 @@ No external scripts, fonts or services are loaded.
   --type-display: 2rem;
   --type-page: 2.5rem;
   color-scheme: light;
-  --cp-bg: #f7f4ef;
-  --cp-bg-elevated: #fcfbf8;
+  --cp-bg: #f6f8fa;
+  --cp-bg-elevated: #eef1f5;
   --cp-surface: #ffffff;
   --cp-surface-soft: #f5f5f5;
   --cp-border: #dedede;
@@ -35,66 +37,46 @@ No external scripts, fonts or services are loaded.
   --cp-text: #242424;
   --cp-text-muted: #5c5c5c;
   --cp-text-soft: #6f6f6f;
-  --cp-accent: #b11f4b;
-  --cp-accent-hover: #9a1a41;
-  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent: #0969da;
+  --cp-accent-hover: #0757b8;
+  --cp-accent-soft: rgba(9, 105, 218, 0.08);
   --cp-accent-fg: #ffffff;
   --cp-success: #16a34a;
   --cp-danger: #dc2626;
   --cp-warning: #f59e0b;
-  --cp-link: #0078d4;
+  --cp-link: #0969da;
   --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
   --cp-overlay: rgba(255, 255, 255, 0.8);
   --cp-panel: rgba(255, 255, 255, 0.86);
   --cp-panel-strong: rgba(255, 255, 255, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.55);
-  --cp-highlight: rgba(177, 31, 75, 0.12);
+  --cp-highlight: rgba(9, 105, 218, 0.12);
 }
 html[data-theme="dark"] {
   color-scheme: dark;
-  --cp-bg: #3d3b3a;
-  --cp-bg-elevated: #343231;
-  --cp-surface: #292929;
-  --cp-surface-soft: #2e2e2e;
-  --cp-border: #474747;
-  --cp-border-strong: #5f5f5f;
-  --cp-text: #dedede;
-  --cp-text-muted: #919191;
-  --cp-text-soft: #b0b0b0;
-  --cp-accent: #fd8ea1;
-  --cp-accent-hover: #fb7b91;
-  --cp-accent-soft: rgba(253, 142, 161, 0.14);
-  --cp-accent-fg: #1a1a1a;
-  --cp-success: #4ade80;
-  --cp-danger: #f87171;
-  --cp-warning: #fbbf24;
-  --cp-link: #4da6ff;
+  --cp-bg: #141619;
+  --cp-bg-elevated: #262a30;
+  --cp-surface: #1c1f24;
+  --cp-surface-soft: #22262c;
+  --cp-border: #343a43;
+  --cp-border-strong: #626d7b;
+  --cp-text: #e6eaf0;
+  --cp-text-muted: #a3adba;
+  --cp-text-soft: #bdc6d2;
+  --cp-accent: #79b0f2;
+  --cp-accent-hover: #a0c8f7;
+  --cp-accent-soft: rgba(121, 176, 242, 0.12);
+  --cp-accent-fg: #101820;
+  --cp-success: #78b89a;
+  --cp-danger: #ee8888;
+  --cp-warning: #d4b579;
+  --cp-link: #79b0f2;
   --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  --cp-overlay: rgba(41, 41, 41, 0.88);
-  --cp-panel: rgba(41, 41, 41, 0.72);
-  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-overlay: rgba(28, 31, 36, 0.88);
+  --cp-panel: rgba(28, 31, 36, 0.72);
+  --cp-panel-strong: rgba(28, 31, 36, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.04);
-  --cp-highlight: rgba(253, 142, 161, 0.12);
-}
-/* Mocha tokens supplied by the local Colors theme library. */
-html[data-theme="dark"] {
-  --cp-bg: #1d1511;
-  --cp-surface: #281f1a;
-  --cp-bg-elevated: #372b25;
-  --cp-surface-soft: #372b25;
-  --cp-border: #4d3f38;
-  --cp-border-strong: #63534b;
-  --cp-text: #eee8e2;
-  --cp-text-soft: #baada0;
-  --cp-text-muted: #baada0;
-  --cp-accent: #d590a1;
-  --cp-accent-hover: #e3a6b5;
-  --cp-accent-soft: #352227;
-  --cp-highlight: #352227;
-  --cp-success: #5aaf85;
-  --cp-warning: #d6ad5c;
-  --cp-danger: #de6654;
-  --cp-link: #d590a1;
+  --cp-highlight: rgba(121, 176, 242, 0.12);
 }
 :root {
   --cp-cat0: var(--cp-accent);
@@ -107,26 +89,26 @@ html[data-theme="dark"] {
   --cp-cat7: color-mix(in srgb, var(--cp-text-soft) 78%, var(--cp-bg));
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--cp-bg); color: var(--cp-text); font: var(--type-body)/1.5 "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif; }
+body { margin: 0; background: var(--cp-bg); color: var(--cp-text); font: var(--type-body)/1.5 var(--font-ui); }
 button, input, select { font: inherit; }
 button, select { cursor: pointer; }
 button { color: inherit; border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 10px; padding: 9px 15px; transition: background 150ms, border-color 150ms; }
 button:hover { background: var(--cp-bg-elevated); border-color: var(--cp-border-strong); }
 button:disabled { opacity: .45; cursor: not-allowed; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 4px; }
-button.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-bg); font-weight: 650; }
+button.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 650; }
 button.primary:hover { background: var(--cp-accent-hover); }
 a { color: var(--cp-link); }
 svg { display: block; }
-.mono, .number { font-family: Consolas, "Courier New", Courier, monospace; font-variant-numeric: tabular-nums; }
+.mono, .number, code { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--cp-text-muted); }
 .soft { color: var(--cp-text-soft); }
 .hidden, [hidden] { display: none !important; }
 .app { max-width: 1640px; margin: auto; padding: 0 48px 32px; }
 .topbar { min-height: 92px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--cp-border); }
-.brand { display: flex; align-items: center; gap: 13px; white-space: nowrap; flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; flex-shrink: 0; }
 .brand-mark { width: 32px; height: 32px; color: var(--cp-accent); flex-shrink: 0; }
-.brand-name { font-family: "Century Gothic", "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 27px; font-weight: 750; letter-spacing: -.035em; line-height: 1.2; }
+.brand-name { font-family: var(--font-ui); font-size: var(--type-brand); font-weight: 600; letter-spacing: -.04em; line-height: 1.2; }
 .top-actions { display: flex; align-items: center; gap: 12px; }
 .local { display: flex; align-items: center; gap: 7px; color: var(--cp-text-soft); font-size: var(--type-meta); margin-right: 8px; }
 .local::before { content: ""; width: 5px; height: 5px; background: var(--cp-success); border-radius: 50%; }
@@ -173,8 +155,8 @@ p { margin: 0; }
 #radial { width: 100%; height: 470px; overflow: visible; }
 #radial path { cursor: pointer; stroke: var(--cp-bg); stroke-width: 1.2; transition: opacity .14s; }
 #radial path:hover, #radial path:focus { opacity: .72; }
-#radial text { fill: var(--cp-text); pointer-events: none; font-family: "Segoe UI", Aptos, sans-serif; }
-#radial .center-size { font-family: Consolas, monospace; font-size: var(--type-display); letter-spacing: -1px; }
+#radial text { fill: var(--cp-text); pointer-events: none; font-family: var(--font-ui); }
+#radial .center-size { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--type-display); letter-spacing: -1px; }
 #radial .center-label { font-size: var(--type-meta); fill: var(--cp-text-muted); }
 #radial .center-hint { font-size: var(--type-meta); fill: var(--cp-text-muted); }
 .chart-note { text-align: center; color: var(--cp-text-muted); font-size: var(--type-meta); margin-top: 4px; }
@@ -306,7 +288,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .rec-body ol { padding-left: 20px; margin: 12px 0 0; }
 .rec-body li { padding-left: 4px; margin: 8px 0; }
 .rec-body .rec-full-path { grid-column: 1/-1; display: flex; gap: 12px; align-items: center; }
-.rec-full-path code { padding: 12px; background: var(--cp-bg); border-radius: 8px; font-size: var(--type-meta); overflow-wrap: anywhere; flex: 1; min-width: 0; font-family: Consolas, monospace; }
+.rec-full-path code { padding: 12px; background: var(--cp-bg); border-radius: 8px; font-size: var(--type-meta); overflow-wrap: anywhere; flex: 1; min-width: 0; font-family: var(--font-mono); }
 .rec-full-path button { flex-shrink: 0; }
 .rec-body .rec-actions { grid-column: 1/-1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .rec-actions span { font-size: var(--type-meta); color: var(--cp-text-muted); }
@@ -365,13 +347,14 @@ dd { margin: 0; overflow-wrap: anywhere; }
     </div>
     <div class="top-actions">
       <span id="local-label" class="local">Local server</span>
-      <select id="drive" aria-label="Drive to scan"><option value="all">All fixed drives</option></select>
+      <select id="drive" aria-label="Drive to scan"><option value="all">All available roots</option></select>
       <button id="export" disabled>Export summary</button>
       <button id="scan" class="primary">Scan drives</button>
     </div>
   </header>
   <main>
     <p id="demo-notice" class="demo-notice" hidden><strong>DEMO · SYNTHETIC DATA</strong>All paths, file sizes and dates are generated examples. Device scanning is disabled.</p>
+    <details id="platform-notice" class="demo-notice" hidden><summary>macOS scan scope &amp; permissions</summary><p id="platform-note" class="explain"></p></details>
     <section class="intro">
       <div><h1>Disk usage</h1><p class="muted">Inspect allocated space by category, folder and file.</p></div>
       <div class="timestamp" id="timestamp"><strong>Read-only scan</strong>File metadata only. No file contents read.</div>
@@ -388,7 +371,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     </section>
     <section id="welcome" class="empty">
       <h2>No scan available</h2><p>Scan a drive to inspect file allocation by category and location.</p>
-      <p style="margin-top:12px">File metadata stays on this PC. Protected locations are reported, not bypassed.</p>
+      <p style="margin-top:12px">File metadata stays on this device. Protected locations are reported, not bypassed.</p>
     </section>
     <div id="results" hidden>
       <nav class="section-switch" aria-label="Analysis views">
@@ -482,6 +465,8 @@ const fmt = bytes => {
   return `${(bytes / 1024 ** unit).toLocaleString(undefined, {maximumFractionDigits: unit < 2 ? 0 : 1})} ${["B","KiB","MiB","GiB","TiB"][unit]}`;
 };
 const count = value => Number(value).toLocaleString();
+const pathSeparator = path => path.startsWith("/") ? "/" : "\\";
+const pathName = path => path.split(pathSeparator(path)).pop();
 const pct = (value, total) => total ? `${(value / total * 100).toFixed(1)}%` : "0%";
 const esc = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const color = i => `var(--cp-cat${i % 8})`;
@@ -495,7 +480,7 @@ async function api(path, body) {
 function capacity(data, measured) {
   $("used").textContent = fmt(data.used);
   $("capacity-total").textContent = `${fmt(data.total)} capacity · ${fmt(data.free)} free`;
-  if(!data.total) { $("capacity-track").replaceChildren(); $("capacity-legend").textContent="No fixed drives were found."; return; }
+  if(!data.total) { $("capacity-track").replaceChildren(); $("capacity-legend").textContent="No scan roots were found."; return; }
   const allocated = measured ? Math.min(data.allocated, data.used) : data.used;
   const unaccounted = measured ? data.unaccounted : 0;
   $("capacity-track").innerHTML = `<span style="width:${allocated / data.total * 100}%"></span><span class="unmapped" style="width:${unaccounted / data.total * 100}%"></span><span class="free" style="width:${data.free / data.total * 100}%"></span>`;
@@ -540,7 +525,7 @@ function enter(node) {
   if (mode === "purpose") selection = node.selection;
   else {
     folder=node.path; directOnly=!!node.direct; folderHistory=[];
-    const separator=folder.includes("\\")?"\\":"/",parts=folder.split(separator).filter(Boolean);
+    const separator=pathSeparator(folder),parts=folder.split(separator).filter(Boolean);
     let path=separator==="/"?"/":"";
     for(const name of parts) { path+=name+separator; folderHistory.push({name,path,direct:false}); }
     if(directOnly) folderHistory.push({name:"Files in this folder",path:folder,direct:true});
@@ -732,7 +717,7 @@ async function loadFiles() {
   $("file-count").textContent=`${count(data.count)} files · ${fmt(data.bytes)} allocated in this selection`;
   $("file-rows").replaceChildren();
   for(const file of data.rows) {
-    const tr=document.createElement("tr"), name=file.path.split(/[\\/]/).pop();
+    const tr=document.createElement("tr"), name=pathName(file.path);
     tr.innerHTML=`<td><button class="file-button"><span class="file-name">${esc(name)}</span><span class="file-path mono">${esc(file.parent)}</span></button></td><td><span class="badge">${esc(file.category)}</span></td><td class="muted">${new Date(file.modified*1000).toLocaleDateString()}</td><td class="mono">${fmt(file.allocated)}</td>`;
     tr.querySelector("button").onclick=()=>fileDetail(file);
     $("file-rows").append(tr);
@@ -742,7 +727,7 @@ async function loadFiles() {
   $("previous").disabled=page===0; $("next").disabled=(page+1)*60>=data.count;
 }
 function fileDetail(file) {
-  $("detail-title").textContent=file.path.split(/[\\/]/).pop();
+  $("detail-title").textContent=pathName(file.path);
   $("detail-content").innerHTML=`<div class="full-path mono">${esc(file.path)}</div><dl><dt>Allocated to this entry</dt><dd class="mono">${fmt(file.allocated)}</dd><dt>Logical size</dt><dd class="mono">${fmt(file.logical)}</dd><dt>Purpose</dt><dd>${esc(file.category)}</dd><dt>Subcategory</dt><dd>${esc(file.subcategory)}</dd><dt>File type</dt><dd>${esc(file.kind)}</dd><dt>Last modified</dt><dd>${new Date(file.modified*1000).toLocaleString()}</dd></dl><p class="explain" style="margin:20px 0">${file.hardlink?"This is another hard link to a file already counted. Physical space is attributed to the first path encountered.":"Allocated size may differ from logical size because of compression, sparse files or allocation units. Zero can also mean allocation was unavailable; consult scan exclusions."}</p><button id="copy-path">Copy full path</button>`;
   $("copy-path").onclick=()=>copyPath(file.path,$("copy-path"));
   $("detail").showModal();
@@ -755,12 +740,12 @@ function insights() {
   $("age-chart").innerHTML=report.ages.map((age,i)=>`<span title="${esc(age.label)}: ${fmt(age.bytes)}" style="width:${report.allocated?age.bytes/report.allocated*100:0}%;background:${color(i)}"></span>`).join("");
   $("age-legend").innerHTML=report.ages.map((age,i)=>`<div><i class="dot" style="background:${color(i)}"></i><span class="muted">${esc(age.label)}</span><span class="mono">${fmt(age.bytes)}</span></div>`).join("");
   $("coverage").textContent=`${pct(report.allocated,report.used)} measured`;
-  $("coverage-text").textContent=`${fmt(report.unaccounted)} of used space is outside measured files. Protected folders, filesystem metadata, alternate streams and skipped links or cloud placeholders can contribute. ${count(report.scan.hardlinks)} repeated hard links were counted only once.${report.overcount?" Allocation exceeds the volume reading by "+fmt(report.overcount)+"; the disk changed during the scan or uses shared allocation.":""}`;
+  $("coverage-text").textContent=`${fmt(report.unaccounted)} of used space is outside measured files. Protected folders, filesystem metadata, snapshots and skipped links or cloud placeholders can contribute. ${count(report.scan.hardlinks)} repeated hard links were counted only once.${report.overcount?" Allocation exceeds the volume reading by "+fmt(report.overcount)+"; the disk changed during the scan or uses shared allocation.":""}`;
 }
 async function coverageDetail() {
   const issues=await api("/api/issues");
   $("detail-title").textContent="What this scan can — and cannot — see";
-  $("detail-content").innerHTML=`<p class="explain"><strong>Unaccounted is not the same as removable.</strong> It is the gap between Windows' volume usage and the file allocation this scan could measure.</p><div class="full-path mono" style="margin-top:16px">${fmt(report.used)} used − ${fmt(report.allocated)} measured = ${fmt(report.used-report.allocated)} gap</div><p class="explain">This scan recorded ${count(report.issuesByReason["Directory unavailable"]||0)} inaccessible directories, ${count(report.scan.reparse)} skipped reparse points, and ${count(report.scan.allocationFailures)} failed allocation lookups. Files with unknown allocation have ${fmt(report.scan.unmeasuredLogical)} of logical size; that is not a measured physical contribution to the gap.</p><p class="explain" style="margin-top:12px">Protected system files, skipped links or cloud placeholders, filesystem metadata, alternate data streams, the inventory database itself, and changes during the scan can contribute. We cannot attribute the entire gap from this scan, so none of it is offered as cleanup savings.</p><dl><dt>Scan state</dt><dd>${esc(report.scan.status)}</dd><dt>Logical bytes (all paths)</dt><dd>${fmt(report.logical)}</dd><dt>Measured allocation</dt><dd>${fmt(report.allocated)}</dd><dt>Unaccounted used space</dt><dd>${fmt(report.unaccounted)}</dd><dt>Allocation failures</dt><dd>${count(report.scan.allocationFailures)}</dd><dt>Logical bytes with unknown allocation</dt><dd>${fmt(report.scan.unmeasuredLogical)}</dd></dl><p class="explain">Hard-linked allocation is counted once, under the first path encountered. This is not an atomic snapshot. Reparse points are not followed or hydrated; permissions are not bypassed. VM images are not inspected internally, and no file contents are read.</p><div class="issue-counts">${Object.entries(report.issuesByReason).map(([reason,n])=>`<span class="badge">${esc(reason)}: ${count(n)}</span>`).join("")}</div><div class="issue-list"><p class="muted" style="margin-top:16px;font-size: var(--type-meta)">Showing ${count(issues.rows.length)} of ${count(issues.count)} exclusions and errors.</p>${issues.rows.map(issue=>`<div class="issue"><strong>${esc(issue.reason)}</strong><span class="mono">${esc(issue.path)}</span><span class="muted">${esc(issue.detail)}</span></div>`).join("")}</div>`;
+  $("detail-content").innerHTML=`<p class="explain"><strong>Unaccounted is not the same as removable.</strong> It is the gap between filesystem-reported usage and the file allocation this scan could measure.</p>${report.accountingNote?`<p class="explain" style="margin-top:12px">${esc(report.accountingNote)}</p>`:""}<div class="full-path mono" style="margin-top:16px">${fmt(report.used)} used − ${fmt(report.allocated)} measured = ${fmt(report.used-report.allocated)} gap</div><p class="explain">This scan recorded ${count(report.issuesByReason["Directory unavailable"]||0)} inaccessible directories, ${count(report.scan.reparse)} skipped links or reparse points, and ${count(report.scan.allocationFailures)} failed allocation lookups. Files with unknown allocation have ${fmt(report.scan.unmeasuredLogical)} of logical size; that is not a measured physical contribution to the gap.</p><p class="explain" style="margin-top:12px">Protected system files, skipped mounts or cloud placeholders, snapshots, filesystem metadata, alternate data streams, the inventory database itself, and changes during the scan can contribute. We cannot attribute the entire gap from this scan, so none of it is offered as cleanup savings.</p><dl><dt>Scan state</dt><dd>${esc(report.scan.status)}</dd><dt>Logical bytes (all paths)</dt><dd>${fmt(report.logical)}</dd><dt>Measured allocation</dt><dd>${fmt(report.allocated)}</dd><dt>Unaccounted used space</dt><dd>${fmt(report.unaccounted)}</dd><dt>Allocation failures</dt><dd>${count(report.scan.allocationFailures)}</dd><dt>Logical bytes with unknown allocation</dt><dd>${fmt(report.scan.unmeasuredLogical)}</dd></dl><p class="explain">Hard-linked allocation is counted once, under the first path encountered. This is not an atomic snapshot. Links are not followed and cloud files are not hydrated; permissions are not bypassed. VM images are not inspected internally, and no file contents are read.</p><div class="issue-counts">${Object.entries(report.issuesByReason).map(([reason,n])=>`<span class="badge">${esc(reason)}: ${count(n)}</span>`).join("")}</div><div class="issue-list"><p class="muted" style="margin-top:16px;font-size: var(--type-meta)">Showing ${count(issues.rows.length)} of ${count(issues.count)} exclusions and errors.</p>${issues.rows.map(issue=>`<div class="issue"><strong>${esc(issue.reason)}</strong><span class="mono">${esc(issue.path)}</span><span class="muted">${esc(issue.detail)}</span></div>`).join("")}</div>`;
   $("detail").showModal();
 }
 async function loadReport() {
@@ -819,7 +804,7 @@ function renderRecommendations() {
 async function inspectRecommendation(item) {
   $("detail-title").textContent=`Measured files · ${item.name}`;
   $("detail-content").innerHTML='<p class="muted">Reading this candidate’s files…</p>'; $("detail").showModal();
-  const key=item.isDirectory?"folder":"path", sep=item.path.includes("\\")?"\\":"/";
+  const key=item.isDirectory?"folder":"path", sep=pathSeparator(item.path);
   const params=new URLSearchParams({[key]:item.path+(item.isDirectory?sep:"")});
   try {
     const data=await api("/api/files?"+params);
@@ -832,9 +817,11 @@ async function poll() {
     const state=await api("/api/status"), running=["scanning","finalizing"].includes(state.status);
     $("progress").hidden=!running; $("scan").disabled=running||state.demo; $("drive").disabled=running||state.demo;
     $("demo-notice").hidden=!state.demo; $("local-label").textContent=state.demo?"Synthetic demo":"Local server";
+    $("platform-notice").hidden=!state.scanNote;
+    $("platform-note").textContent=state.scanNote||"";
     document.body.classList.toggle("demo-mode",!!state.demo);
     $("cancel").disabled=state.status==="finalizing";
-    $("scan").textContent=state.demo?"Demo mode":state.hasReport?"Rescan drives":"Scan drives";
+    $("scan").textContent=state.demo?"Demo mode":state.platform==="darwin"?(state.hasReport?"Rescan startup disk":"Scan startup disk"):state.hasReport?"Rescan drives":"Scan drives";
     if(running) {
       $("welcome").hidden=true;
       $("progress-title").textContent=state.status==="finalizing"?"Saving scan results":"Scanning file metadata";
@@ -859,7 +846,7 @@ async function startScan() {
 async function boot() {
   $("error").hidden=true;
   drives=await api("/api/drives");
-  $("drive").replaceChildren(new Option("All fixed drives","all"),...drives.map(d=>new Option(`${d.root} · ${fmt(d.total)}`,d.root)));
+  $("drive").replaceChildren(new Option("All available roots","all"),...drives.map(d=>new Option(`${d.root==="/"?"Startup filesystem (/)":d.root} · ${fmt(d.total)}`,d.root)));
   if(!report) capacity(drives.reduce((sum,d)=>({total:sum.total+d.total,used:sum.used+d.used,free:sum.free+d.free}),{total:0,used:0,free:0}),false);
   await poll();
 }

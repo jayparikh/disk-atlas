@@ -13,7 +13,7 @@ import tempfile
 from contextlib import ExitStack
 from urllib.parse import parse_qs, urlparse
 
-from scanner import Inventory, fixed_drives
+from scanner import IS_MACOS, MAC_SCAN_NOTE, Inventory, fixed_drives
 
 BASE = Path(__file__).resolve().parent
 
@@ -76,7 +76,9 @@ def make_handler(inventory, token, port, demo=False):
                 elif parsed.path == "/favicon.ico":
                     self.respond(204, "", "text/plain")
                 elif parsed.path == "/api/status":
-                    self.respond(200, {**inventory.status(), "demo": demo})
+                    self.respond(200, {**inventory.status(), "demo": demo,
+                                       "platform": sys.platform,
+                                       "scanNote": MAC_SCAN_NOTE if IS_MACOS and not demo else ""})
                 elif parsed.path == "/api/drives":
                     self.respond(200, inventory.report()["volumes"] if demo else fixed_drives())
                 elif parsed.path == "/api/report":
@@ -125,7 +127,7 @@ def make_handler(inventory, token, port, demo=False):
                         raise ValueError("Drive roots must be a list of strings.")
                     allowed = {drive["root"] for drive in drives}
                     if not roots or any(root not in allowed for root in roots):
-                        raise ValueError("Select an available fixed drive.")
+                        raise ValueError("Select an available scan root.")
                     inventory.start(list(dict.fromkeys(roots)))
                     self.respond(202, inventory.status())
                 elif self.path == "/api/cancel":
@@ -143,7 +145,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--scan", action="store_true", help="Start a scan of all fixed drives.")
+    mode.add_argument("--scan", action="store_true", help="Scan fixed drives on Windows or the startup filesystem on macOS/Linux.")
     mode.add_argument("--demo", action="store_true", help="Use synthetic data; never scan this device.")
     parser.add_argument("--data-dir", type=Path, help="Private runtime storage; defaults to the user-local application directory.")
     args = parser.parse_args()
