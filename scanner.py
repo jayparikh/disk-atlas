@@ -9,6 +9,7 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import threading
 import time
 
@@ -16,7 +17,20 @@ from recommendations import MINIMUM_BYTES, RULE_VERSION, analyze
 
 LOG = logging.getLogger("disk-atlas")
 IS_WINDOWS = os.name == "nt"
+IS_MACOS = sys.platform == "darwin"
 REPARSE_POINT = 0x400
+UF_DATALESS = 0x40000000
+MAC_DATA_ROOT = "/System/Volumes/Data"
+MAC_SCAN_NOTE = (
+    "macOS scans the startup filesystem through its normal paths, including /Users "
+    "and /Applications. /System/Volumes mirrors and other mounted filesystems are "
+    "excluded. APFS capacity is shared: used space can include other volumes and "
+    "snapshots that were not scanned. Per-file allocation cannot distinguish shared "
+    "clone extents, so totals and cleanup candidates are not guaranteed savings. "
+    "Protected folders are reported as inaccessible. If needed, grant Full Disk "
+    "Access to the terminal or app launching Disk Atlas in System Settings > "
+    "Privacy & Security, then restart it and rescan. Permissions are never bypassed."
+)
 
 if IS_WINDOWS:
     from ctypes import wintypes
@@ -55,7 +69,9 @@ def volume_usage(root: str) -> dict:
                 "used": total.value - free.value}
     import shutil
     usage = shutil.disk_usage(root)
-    return {"root": root, "total": usage.total, "free": usage.free, "used": usage.used}
+    # APFS's per-volume used blocks exclude sibling volumes sharing this capacity.
+    used = usage.total - usage.free if IS_MACOS else usage.used
+    return {"root": root, "total": usage.total, "free": usage.free, "used": used}
 
 
 def fixed_drives() -> list[dict]:
@@ -88,8 +104,8 @@ EXTENSIONS = {
     "Audio": set("mp3 wav flac aac m4a ogg aiff wma".split()),
     "Documents": set("pdf doc docx xls xlsx ppt pptx txt rtf md csv tsv epub odt one".split()),
     "Archives": set("zip 7z rar tar gz bz2 xz zst cab".split()),
-    "Installers": set("msi msix appx appxbundle msixbundle msp".split()),
-    "Virtual disks": set("vhd vhdx vmdk vdi qcow qcow2 iso img wim esd".split()),
+    "Installers": set("msi msix appx appxbundle msixbundle msp dmg pkg".split()),
+    "Virtual disks": set("vhd vhdx vmdk vdi qcow qcow2 iso img wim esd sparseimage sparsebundle".split()),
     "Source code": set("py js ts tsx jsx c cpp h hpp cs go rs java rb php swift kt html css scss vue svelte ipynb".split()),
     "Data": set("db sqlite sqlite3 parquet arrow duckdb mdf ldf bak sql json xml yaml yml toml".split()),
     "Models": set("gguf safetensors onnx pt pth ckpt h5 hdf5".split()),
@@ -103,11 +119,39 @@ CATEGORIES = [
 
 
 def classify(path: str) -> tuple[str, str, str]:
-    parts = path.replace("/", "\\").lower().split("\\")
+    parts = path.lower().split("/") if path.startswith("/") else path.replace("/", "\\").lower().split("\\")
     name = parts[-1]
     ext = name.rsplit(".", 1)[-1] if "." in name else ""
     kind = EXT_LOOKUP.get(ext, ("." + ext) if ext else "No extension")
     # Purpose takes precedence over extension: a photo shipped with an app is app data.
+    if path.startswith("/"):
+        posix = path.lower().split("/")
+        if posix[:4] == ["", "system", "volumes", "data"]:
+            posix = ["", *posix[4:]]
+        if posix[1:2] in (["system"], ["bin"], ["sbin"], ["usr"]) and posix[1:3] != ["usr", "local"]:
+            return "System & recovery", "macOS & Unix system files", kind
+        if posix[1:3] == ["private", "var"] or posix[1:2] == ["var"]:
+            if "vm" in posix[2:4]:
+                return "System & recovery", "Paging & hibernation", kind
+        if ".trash" in posix or ".trashes" in posix:
+            return "Caches & temporary", "Trash", kind
+        if "com.docker.docker" in posix and name in {"docker.raw", "docker.qcow2"}:
+            return "Virtual machines", "Containers", "Virtual disks"
+        library = 1 if posix[1:2] == ["library"] else (
+            3 if posix[1:2] == ["users"] and posix[3:4] == ["library"] else None)
+        if library is not None:
+            tail = posix[library + 1:]
+            if tail[:3] == ["developer", "xcode", "deriveddata"]:
+                return "Development", "Xcode derived data", kind
+            if tail[:1] == ["caches"]:
+                return "Caches & temporary", "Application & package caches", kind
+            if tail[:1] in (["mobile documents"], ["cloudstorage"]):
+                return "Personal files", "Cloud documents", kind
+            return "Applications", "Shared application data" if library == 1 else "Per-user application data", kind
+        if any(part.endswith(".app") for part in posix[:-1]):
+            return "Applications", "Application bundles", kind
+        if posix[1:3] == ["private", "var"] or posix[1:2] == ["var"]:
+            return "System & recovery", "macOS & Unix system data", kind
     if "$recycle.bin" in parts:
         return "Caches & temporary", "Recycle bin", kind
     if name in {"pagefile.sys", "hiberfil.sys", "swapfile.sys"}:
@@ -182,7 +226,7 @@ class Inventory:
 
     @contextmanager
     def connect(self):
-        db = sqlite3.connect(f"file:{self.database.as_posix()}?mode=ro", uri=True)
+        db = sqlite3.connect(self.database.resolve().as_uri() + "?mode=ro", uri=True)
         db.row_factory = sqlite3.Row
         try:
             yield db
@@ -227,7 +271,15 @@ class Inventory:
             db.execute("PRAGMA journal_mode=OFF")
             db.execute("PRAGMA synchronous=OFF")
             start_volumes = [volume_usage(root) for root in roots]
-            stack = list(reversed(roots))
+            stack = []
+            for root in reversed(roots):
+                devices = {os.stat(native_path(root)).st_dev}
+                if IS_MACOS and root == "/" and os.path.isdir(MAC_DATA_ROOT):
+                    devices.add(os.stat(MAC_DATA_ROOT).st_dev)
+                stack.append((root, devices))
+            data_identity = os.stat(self.data_dir)
+            data_identity = (data_identity.st_dev, data_identity.st_ino)
+            seen_directories: set[tuple[int, int]] = set()
             seen_links: set[tuple[int, int]] = set()
             categories: dict[tuple[str, str, str], list[int]] = {}
             ages = [{"label": label, "bytes": 0, "files": 0} for label in
@@ -246,8 +298,14 @@ class Inventory:
                 db.execute("INSERT INTO issues VALUES(?,?,?)", (path, reason, detail))
 
             while stack and not self.cancel_event.is_set():
-                folder = stack.pop()
+                folder, devices = stack.pop()
                 try:
+                    folder_stat = os.stat(native_path(folder), follow_symlinks=False)
+                    identity = (folder_stat.st_dev, folder_stat.st_ino)
+                    if not IS_WINDOWS and identity in seen_directories:
+                        issue(folder, "Repeated directory", "Skipped an already visited filesystem directory.")
+                        continue
+                    seen_directories.add(identity)
                     with os.scandir(native_path(folder)) as entries:
                         counters["directories"] += 1
                         for entry in entries:
@@ -260,12 +318,23 @@ class Inventory:
                                 continue
                             try:
                                 stat = entry.stat(follow_symlinks=False)
+                                if (stat.st_dev, stat.st_ino) == data_identity:
+                                    issue(path, "Scanner data", "Excluded the scanner's own database directory.")
+                                    continue
                                 if entry.is_symlink() or getattr(stat, "st_file_attributes", 0) & REPARSE_POINT:
                                     counters["reparse"] += 1
                                     issue(path, "Reparse point", "Skipped link, junction or cloud placeholder; no target followed.")
                                     continue
+                                if IS_MACOS and getattr(stat, "st_flags", 0) & UF_DATALESS:
+                                    issue(path, "Cloud placeholder", "Skipped dataless cloud content; no hydration requested.")
+                                    continue
                                 if entry.is_dir(follow_symlinks=False):
-                                    stack.append(path)
+                                    if IS_MACOS and path == "/System/Volumes":
+                                        issue(path, "APFS volume mirrors", "Skipped mirrored Data paths and auxiliary volumes; startup files are scanned through their normal paths.")
+                                    elif not IS_WINDOWS and stat.st_dev not in devices:
+                                        issue(path, "Mounted filesystem", "Outside this scan root's filesystem; target not traversed.")
+                                    else:
+                                        stack.append((path, devices))
                                     continue
                                 if not entry.is_file(follow_symlinks=False):
                                     issue(path, "Special file", "Not a regular file.")
@@ -341,7 +410,8 @@ class Inventory:
                       "taxonomy": [{"category": key[0], "subcategory": key[1], "kind": key[2],
                                     "bytes": value[0], "logical": value[1], "files": value[2]}
                                    for key, value in categories.items()],
-                      "ages": ages}
+                      "ages": ages, "platform": sys.platform,
+                      "accountingNote": MAC_SCAN_NOTE if IS_MACOS else ""}
             db.execute("INSERT INTO metadata VALUES('report', ?)", (json.dumps(report),))
             db.commit()
         finally:
@@ -367,11 +437,18 @@ class Inventory:
             if params.get(field):
                 conditions.append(f"{field}=?")
                 values.append(params[field])
-        for field, column, suffix in (("search", "path", "%"), ("folder", "path", "%")):
-            if params.get(field):
-                term = params[field].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                conditions.append(f"{column} LIKE ? ESCAPE '\\'")
-                values.append(("%" if field == "search" else "") + term + suffix)
+        if params.get("search"):
+            term = params["search"].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            conditions.append("path LIKE ? ESCAPE '\\'")
+            values.append("%" + term + "%")
+        if params.get("folder"):
+            prefix = params["folder"]
+            separator = "/" if prefix.startswith("/") else "\\"
+            if not prefix.endswith(separator):
+                prefix += separator
+            collation = "BINARY" if separator == "/" else "NOCASE"
+            conditions.append(f"SUBSTR(path,1,?)=? COLLATE {collation}")
+            values.extend((len(prefix), prefix))
         return (" WHERE " + " AND ".join(conditions) if conditions else ""), values
 
     def files(self, params: dict) -> dict:
@@ -388,6 +465,8 @@ class Inventory:
         separator = "\\" if IS_WINDOWS else "/"
         if not prefix and not IS_WINDOWS:
             prefix = separator
+        if prefix and not prefix.endswith(separator):
+            prefix += separator
         where, values = self.filters({"folder": prefix})
         with self.lock, self.connect() as db:
             rows = db.execute("""

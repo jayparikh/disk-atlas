@@ -5,7 +5,7 @@ import ntpath
 import posixpath
 
 MINIMUM_BYTES = 256 * 1024**2
-RULE_VERSION = 2
+RULE_VERSION = 3
 
 RULES = {
     "cache": {
@@ -85,6 +85,39 @@ RULES = {
         ],
         "caution": "A vendor folder may contain several applications or shared components. An uninstaller may reclaim less.",
     },
+    "mac-application": {
+        "title": "Review an unused Mac application",
+        "risk": "app",
+        "reason": "An application bundle has a substantial measured footprint.",
+        "steps": [
+            "Confirm the app is no longer needed and quit it.",
+            "Back up its documents, settings and license information.",
+            "Follow the developer's uninstall instructions or review the app in System Settings > General > Storage > Applications. Do not remove files inside the bundle.",
+        ],
+        "caution": "An app may have separate user data or shared components. Its bundle size is not guaranteed reclaimed space.",
+    },
+    "mac-trash": {
+        "title": "Review the Trash",
+        "risk": "review",
+        "reason": "Previously deleted files still occupy measured space in the Trash.",
+        "steps": [
+            "Open Trash in Finder and review its contents.",
+            "Use Put Back for anything you want to keep.",
+            "Empty Trash only after review; this removes the normal restore option.",
+        ],
+        "caution": "Emptying Trash is permanent. Only accessible entries were measured; snapshots may retain storage.",
+    },
+    "xcode-derived": {
+        "title": "Review Xcode derived data",
+        "risk": "regenerable",
+        "reason": "Xcode's DerivedData contains generated build products and indexes.",
+        "steps": [
+            "Quit Xcode and stop active builds.",
+            "Verify the project's source, dependencies and build configuration are available.",
+            "Use Xcode's Locations settings to review DerivedData for inactive projects, then rebuild when needed.",
+        ],
+        "caution": "Rebuilding and indexing can take time. Archives, device backups and simulator data are not included.",
+    },
     "toolchain": {
         "title": "Retire an unused Rust toolchain",
         "risk": "app",
@@ -114,7 +147,7 @@ RULES = {
         "steps": [
             "Confirm what this file contains and whether it is still needed.",
             "Verify any replacement, backup or re-download source before removing it.",
-            "If discarding it, review the Recycle Bin afterward; recycling alone may not free space yet.",
+            "If discarding it, review Trash or the Recycle Bin afterward; moving it there alone may not free space yet.",
         ],
         "caution": "No duplicate or backup was verified. Last-modified time does not show whether you still use this file.",
     },
@@ -122,7 +155,7 @@ RULES = {
 
 
 def path_module(path):
-    return ntpath if "\\" in path or ntpath.splitdrive(path)[0] else posixpath
+    return posixpath if path.startswith("/") else ntpath if "\\" in path or ntpath.splitdrive(path)[0] else posixpath
 
 
 def candidate_for(path, category, kind):
@@ -131,6 +164,7 @@ def candidate_for(path, category, kind):
     parts = path.split(separator)
     lower = [part.lower() for part in parts]
     if (category == "System & recovery"
+            or ".git" in lower[:-1]
             or any(part.startswith("onedrive") for part in lower)
             or any(part in {"onenote", "outlook", "thunderbird"} for part in lower)):
         return None
@@ -138,6 +172,32 @@ def candidate_for(path, category, kind):
     def group(rule, index):
         return rule, separator.join(parts[:index + 1]), True
 
+    if module is posixpath:
+        # Only recognized user-library caches are cleanup leads, never live app data.
+        if lower[1:2] in (["system"], ["private"], ["var"], ["usr"], ["bin"], ["sbin"], ["library"], ["opt"]):
+            return None
+        if lower[1:2] == ["users"] and lower[3:4] == [".trash"]:
+            return group("mac-trash", 3)
+        if any(part in {"mobile documents", "cloudstorage"} or part.endswith(
+                (".photoslibrary", ".photolibrary", ".sparsebundle")) for part in lower[:-1]):
+            return None
+        if lower[1:2] == ["users"] and lower[3:4] == ["library"]:
+            index = 3
+            tail = lower[index + 1:]
+            if tail[:1] == ["caches"] and len(tail) > 2:
+                rule = "package-cache" if tail[1] in {"homebrew", "pip", "uv"} else "cache"
+                return group(rule, index + 2)
+            if tail[:3] == ["developer", "xcode", "deriveddata"] and len(tail) > 4:
+                return group("xcode-derived", index + 4)
+            if "com.docker.docker" in tail and lower[-1] in {"docker.raw", "docker.qcow2"}:
+                return "virtual-disk", path, False
+            return None
+        for index, part in enumerate(lower[:-1]):
+            if part.endswith(".app"):
+                if (lower[1:2] == ["applications"] and index == 2) or (
+                        lower[1:2] == ["users"] and lower[3:4] == ["applications"] and index == 4):
+                    return group("mac-application", index)
+                return None
     if len(parts) > 2 and lower[1] in {"program files", "program files (x86)"}:
         shared = {"common files", "windowsapps", "modifiablewindowsapps", "dotnet",
                   "windows defender", "windows nt", "windows kits", "microsoft",
@@ -172,7 +232,7 @@ def candidate_for(path, category, kind):
         if part == "temp" and lower[max(0, index - 2):index] == ["appdata", "local"]:
             return group("temporary", index)
     if kind == "Virtual disks" and module.splitext(path)[1].lower() in {
-        ".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow", ".qcow2"
+        ".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow", ".qcow2", ".sparseimage"
     }:
         return "virtual-disk", path, False
     if "downloads" in lower[:-1]:
@@ -187,7 +247,7 @@ def analyze(db, report):
         if match is None:
             continue
         rule, path, is_directory = match
-        key = (rule, path.casefold())
+        key = (rule, path.casefold() if path_module(path) is ntpath else path)
         if key not in groups:
             groups[key] = {"rule": rule, "path": path, "isDirectory": is_directory,
                            "bytes": 0, "files": 0, "newest": 0, "recentBytes": 0}
@@ -206,7 +266,8 @@ def analyze(db, report):
         item.update(RULES[item["rule"]])
         item["name"] = module.basename(item["path"])
         item["context"] = module.basename(module.dirname(item["path"]))
-        item["id"] = hashlib.sha256((item["rule"] + "\0" + item["path"].casefold()).encode()).hexdigest()[:20]
+        identity = item["path"].casefold() if module is ntpath else item["path"]
+        item["id"] = hashlib.sha256((item["rule"] + "\0" + identity).encode()).hexdigest()[:20]
         item["evidence"] = []
         if item["rule"] in {"dependencies", "build-cache"}:
             parent = module.dirname(item["path"])
@@ -228,4 +289,4 @@ def analyze(db, report):
     return {"snapshot": report["scan"]["finished"], "version": RULE_VERSION,
             "partial": report["scan"]["status"] != "complete", "items": candidates,
             "minimumBytes": MINIMUM_BYTES,
-            "estimateNote": "These are measured candidate footprints, not guaranteed savings. Shared hard links, in-use files and app cleanup policies may reduce the amount freed. No backup, last-access time or unused VM capacity was verified."}
+            "estimateNote": "These are measured candidate footprints, not guaranteed savings. Shared hard links, APFS clones and snapshots, in-use files and app cleanup policies may reduce the amount freed. No backup, last-access time or unused VM capacity was verified."}

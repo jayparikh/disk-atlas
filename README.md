@@ -19,6 +19,8 @@ python server.py
 ```
 
 Open **http://127.0.0.1:8765/?theme=dark** and select **Scan drives**.
+The UI defaults to charcoal dark mode regardless of the system appearance.
+Light mode is available only when explicitly requested with `?theme=light`.
 The server does not scan automatically. To start a scan on launch:
 
 ```powershell
@@ -38,37 +40,56 @@ Demo mode uses deterministic, fictional metadata in a temporary directory.
 It does not enumerate real drives or scan your files, and scan requests are
 rejected by the server. Use `--port 8766` to run it beside another instance.
 
-On macOS or Linux, use `python3` if that is your Python 3 command.
+On macOS or Linux, use `python3` if that is your Python 3 command, or use
+`uv run --python 3.12 python server.py`.
 
 ## Platform status
 
 | Platform | Status |
 | --- | --- |
 | Windows 10/11 | Primary target for full-drive scanning, allocation accounting and cleanup guidance. |
-| macOS/Linux | Synthetic demo supported. Real scanning has an experimental Unix fallback, not equivalent platform support. |
+| macOS | Startup-filesystem metadata scanning, Mac classification and conservative cleanup guidance. APFS shared storage has the limits below. |
+| Linux | Experimental root-filesystem scanning and synthetic demo. |
 
-The Unix fallback scans the root filesystem rather than discovering every
-volume. Classification and cleanup guidance remain Windows-oriented. APFS
-clones, snapshots, firmlinks and other shared storage are not fully accounted
-for; mounted or mirrored paths can also affect totals.
-Passing unit tests on another OS does not establish full scanning support.
+On macOS, `/` is the scan root. The scanner includes the startup Data volume
+through normal paths such as `/Users`, `/Applications` and `/Library`. It
+skips `/System/Volumes` to avoid mirrored firmlink paths and auxiliary volumes,
+and does not cross into external disks, disk images, network mounts or other
+filesystems. These exclusions are visible in scan coverage. Linux likewise
+stays on the root filesystem rather than traversing other mounts.
+
+APFS capacity is shared by multiple volumes. The capacity bar uses total minus
+free space, including occupied storage outside the scanned namespace, rather
+than treating the read-only System volume's used blocks as the whole disk.
+Per-file allocation uses `st_blocks × 512`; it cannot identify shared clone
+extents or reclaimable snapshots. Snapshots, auxiliary volumes, inaccessible
+files and filesystem metadata can contribute to the gap. **Unaccounted space
+is not removable space**, and file allocations are not guaranteed savings.
 
 ### Testing on a Mac
 
 Start with the synthetic demo:
 
 ```sh
-python3 --version  # 3.12 or newer
-python3 server.py --demo
+uv run --python 3.12 python server.py --demo
 ```
 
-Open `http://127.0.0.1:8765/?theme=dark&chart=map`. For an experimental real
-scan, stop the demo and run `python3 server.py`, then start a scan in the UI.
+Open `http://127.0.0.1:8765/?theme=dark&chart=map`. For a real scan, stop the
+demo, run `uv run --python 3.12 python server.py`, then select **Scan startup
+disk**. Expand **macOS scan scope & permissions** for the limits before scanning.
 
-macOS may deny access to protected directories. Those failures should appear
-in the coverage view; the app does not grant itself Full Disk Access or bypass
-permissions. Treat APFS allocation totals and Windows-oriented cleanup
-recommendations as limitations to investigate, not verified Mac behavior.
+macOS may deny access to protected directories. These failures appear in the
+coverage view. If you need broader coverage, grant Full Disk Access to the
+terminal or app launching Disk Atlas in **System Settings → Privacy & Security**,
+restart that terminal/app and rescan. Disk Atlas never grants itself access,
+requests elevation or bypasses permissions. Dataless cloud placeholders are
+skipped without reading or downloading their contents.
+
+Mac cleanup guidance recognizes application bundles, per-app Library caches,
+Homebrew download caches, Xcode DerivedData, Trash, downloads and Docker disk
+images. Cloud document stores, Photos libraries, system directories and other
+live Library data are not offered as cache cleanup. App removal uses Mac
+guidance, not Windows Settings. Review each candidate before acting.
 
 ## Explore a scan
 
@@ -90,7 +111,7 @@ The app does not delete files, uninstall software or execute cleanup commands.
 ## What “unaccounted” means
 
 ```text
-Windows-reported used space − measured file allocation = unaccounted space
+Filesystem-reported used space − measured file allocation = unaccounted space
 ```
 
 The gap can include inaccessible directories, locked system files, skipped
@@ -137,6 +158,9 @@ non-demo screenshots. Do not attach real scans or screenshots to public issues.
 
 On Windows, the scanner uses `GetCompressedFileSizeW` for allocated size,
 `os.stat` for file identity and `GetDiskFreeSpaceExW` for volume usage.
+On macOS and Linux, file allocation comes from `st_blocks`, not logical size.
+Folder queries and cleanup grouping preserve distinct POSIX path casing,
+including on case-sensitive APFS volumes.
 
 - Hard-linked allocation is counted once, under the first encountered path.
   Logical sizes still count individual directory entries.
@@ -163,6 +187,11 @@ python -m unittest discover -s . -p "test_*.py" -v
 node test_treemap.cjs
 python scripts/check_release.py
 ```
+
+On a Mac with uv, use `uv run --python 3.12 python -m unittest discover -s . -p
+"test_*.py" -v`. CI runs the suite on Windows, Linux and macOS, including
+regressions for startup Data-volume traversal, mount/mirror exclusions,
+cloud placeholders, sparse files, permissions and Mac cleanup rules.
 
 The release check inspects Git-indexed files for runtime artifacts, personal
 home paths, common credential patterns and screenshot metadata. It is a

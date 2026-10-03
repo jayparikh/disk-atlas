@@ -4,6 +4,16 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const themeScript = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+for (const [search, expected] of [["", "dark"], ["?theme=dark", "dark"], ["?theme=light", "light"], ["?theme=unknown", "dark"]]) {
+  let theme;
+  vm.runInNewContext(themeScript, {
+    URLSearchParams,
+    window: { location: { search }, matchMedia: () => ({ matches: false }) },
+    document: { documentElement: { setAttribute: (name, value) => { if (name === "data-theme") theme = value; } } },
+  });
+  assert.equal(theme, expected);
+}
 const start = html.indexOf("function treemapLayout(");
 const end = html.indexOf("\nfunction mapInspect(", start);
 assert.ok(start > 0 && end > start);
